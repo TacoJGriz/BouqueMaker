@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bouquet Maker - Advanced</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div id="start-page" class="page active">
+        <h1>💐 Bouquet Maker 🌸</h1>
+        <p>Design your perfect floral arrangement with multiple flower types!</p>
+        <button id="start-button">Start Designing</button>
+    </div>
+
+    <div id="selector-page" class="page">
+        <h2>🛠️ Select Your Bouquet Options</h2>
+        <div id="quantity-feedback" style="margin-bottom: 20px; font-weight: bold;">
+            Total Flowers: <span id="current-total">0</span> / 15
+        </div>
+
+        <div id="error-container">
+            <div id="error-message" class="hidden">
+                ⚠️ Bouquet limit reached! Max 15 flowers.
+            </div>
+        </div>
+
+        <h3>Flower Components</h3>
+        <div id="flower-groups-container">
+        </div>
+
+        <button id="add-flower-group-btn" class="secondary-btn">+ Add Flower Type</button>
+        <hr>
+
+        <div class="selection-grid">
+            <div class="selection-box">
+                <h3>Bouquet Wrapping</h3>
+                <select id="wrapping">
+                    <option value="Clear Plastic">Clear Plastic</option>
+                    <option value="Red Silk">Red Silk</option>
+                    <option value="Yellow Burlap">Yellow Burlap</option>
+                    <option value="Blue Tissue">Blue Tissue</option>
+                </select>
+            </div>
+            
+            <div class="selection-box full-width">
+                <h3>💡 Not Sure? Describe Your Vision!</h3>
+                <textarea id="description" rows="3" placeholder="I want something vibrant and warm, like a sunset..."></textarea>
+            </div>
+        </div>
+
+        <button id="view-bouquet-button">View My Bouquet</button>
+    </div>
+    <div id="result-page" class="page">
+        <h2>🎉 Your Custom Bouquet Summary</h2>
+        <div id="bouquet-summary">
+        </div>
+        <button onclick="location.reload()">Start Over</button>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
