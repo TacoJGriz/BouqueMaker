@@ -1,64 +1,289 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bouquet Maker - Advanced</title>
-    <link rel="stylesheet" href="style.css">
-</head>
-<body>
+document.addEventListener('DOMContentLoaded', () => {
+  // --- Page Elements ---
+  const startPage = document.getElementById('start-page');
+  const selectorPage = document.getElementById('selector-page');
+  const resultPage = document.getElementById('result-page');
+  const flowerGroupsContainer = document.getElementById('flower-groups-container');
+  const currentTotalSpan = document.getElementById('current-total');
+  const currentPriceSpan = document.getElementById('current-price'); // NEW: Price display element
+  const errorContainerDiv = document.getElementById('error-container');
 
-    <div id="start-page" class="page active">
-        <h1>💐 Bouquet Maker 🌸</h1>
-        <p>Design your perfect floral arrangement with multiple flower types!</p>
-        <button id="start-button">Start Designing</button>
-    </div>
+  // --- Buttons ---
+  const startButton = document.getElementById('start-button');
+  const addFlowerGroupButton = document.getElementById('add-flower-group-btn');
+  const viewBouquetButton = document.getElementById('view-bouquet-button');
 
-    <div id="selector-page" class="page">
-        <h2>🛠️ Select Your Bouquet Options</h2>
-        <div id="quantity-feedback" style="margin-bottom: 20px; font-weight: bold;">
-            Total Flowers: <span id="current-total">0</span> / 15
-        </div>
+  // --- Constraints and Options ---
+  const MAX_BOUQUET_SIZE = 15;
+  
+  // NEW: Pricing structure
+  const FLOWER_PRICES = {
+    'Roses': 4.50,
+    'Tulips': 3.00,
+    'Bluebonnets': 2.75,
+    'Lilies': 5.50,
+    'Daisies': 1.50
+  };
+  const WRAPPING_PRICE = 5.00; // Fixed cost for wrapping
 
-        <div id="error-container">
-            <div id="error-message" class="hidden">
-                ⚠️ Bouquet limit reached! Max 15 flowers.
+  const FLOWER_TYPES = Object.keys(FLOWER_PRICES); // Use keys for the list
+  const COLORS = ['Red', 'Yellow', 'Blue', 'Pink', 'White', 'Purple'];
+  const STEM_COLORS = ['Green', 'Brown', 'Light Green'];
+
+  let groupCounter = 0;
+
+  // --- Core Functionality: Switch Pages ---
+  function showPage(pageToShow) {
+    const allPages = [startPage, selectorPage, resultPage];
+    allPages.forEach(page => page.classList.remove('active'));
+    pageToShow.classList.add('active');
+  }
+
+  // --- Function to Show the Error Pop-up (Unchanged) ---
+  function showErrorPopup() {
+    clearTimeout(window.errorTimer);
+    errorContainerDiv.style.display = 'block';
+    window.errorTimer = setTimeout(() => {
+      errorContainerDiv.style.display = 'none';
+    }, 3000);
+  }
+
+  // --- Main Quantity and Price Calculation ---
+  function updateTotalQuantity(currentInput = null) {
+    let currentTotal = 0;
+    let totalPrice = 0; // NEW: Initialize price
+    const inputs = document.querySelectorAll('.flower-group');
+    
+    // 1. Calculate the total quantity and price
+    inputs.forEach(groupElement => {
+      const quantity = parseInt(groupElement.querySelector('.quantity-input').value) || 0;
+      const type = groupElement.querySelector('.type-select').value;
+      
+      const pricePerFlower = FLOWER_PRICES[type] || 0; // Look up price based on type
+      
+      currentTotal += Math.max(0, quantity);
+      totalPrice += (Math.max(0, quantity) * pricePerFlower); // Add to total price
+    });
+    
+    // Add wrapping cost only if at least one flower is selected
+    if (currentTotal > 0) {
+      totalPrice += WRAPPING_PRICE;
+    }
+
+    // 2. Update the feedback UI
+    currentTotalSpan.textContent = currentTotal;
+    currentPriceSpan.textContent = `$${totalPrice.toFixed(2)}`; // NEW: Display price
+    
+    // 3. Update UI based on final total
+    const isFull = currentTotal >= MAX_BOUQUET_SIZE;
+    currentTotalSpan.style.color = isFull ? '#e91e63' : '#333';
+    
+    addFlowerGroupButton.disabled = isFull;
+    addFlowerGroupButton.textContent = isFull ?
+      'Limit Reached (15)' : '+ Add Flower Type';
+      
+    viewBouquetButton.disabled = currentTotal === 0;
+
+    // 4. Update individual input max values (Unchanged)
+    document.querySelectorAll('.quantity-input').forEach(input => {
+        const inputQuantity = parseInt(input.value) || 0;
+        const otherTotal = currentTotal - inputQuantity;
+        const remainingCapacityForThisInput = MAX_BOUQUET_SIZE - otherTotal;
+        input.max = remainingCapacityForThisInput;
+    });
+
+    return {currentTotal, totalPrice};
+  }
+  
+  // --- Handles Quantity Input/Blur Events (Unchanged) ---
+  function handleQuantityChange(event) {
+    const input = event.target;
+    let requestedValue = parseInt(input.value) || 0;
+    
+    let otherTotal = 0;
+    document.querySelectorAll('.quantity-input').forEach(otherInput => {
+        if (otherInput !== input) {
+            otherTotal += parseInt(otherInput.value) || 0;
+        }
+    });
+
+    const remainingCapacity = MAX_BOUQUET_SIZE - otherTotal;
+    
+    if (requestedValue > remainingCapacity) {
+        if (event.type === 'blur' || event.type === 'change') {
+            input.value = Math.max(0, remainingCapacity);
+        }
+        showErrorPopup();
+    } 
+
+    updateTotalQuantity(input);
+  }
+
+  // --- Dynamic Group Generation Function ---
+  function createFlowerGroup() {
+    groupCounter++;
+    const id = `group-${groupCounter}`;
+
+    // Get the default flower type for the first group
+    const defaultFlower = FLOWER_TYPES[0];
+    const defaultPrice = FLOWER_PRICES[defaultFlower].toFixed(2);
+
+    const groupHTML = `
+            <div class="flower-group" id="${id}">
+                <h4>Flower Group #${groupCounter} - $${defaultPrice} / ea <button class="remove-group-btn" data-group-id="${id}">Remove</button></h4>
+                <div class="selection-grid">
+                    <div class="selection-box">
+                        <h3>Quantity (Max ${MAX_BOUQUET_SIZE})</h3>
+                        <input type="number" class="quantity-input" min="0" max="${MAX_BOUQUET_SIZE}" value="1" data-field="quantity">
+                    </div>
+                    <div class="selection-box">
+                        <h3>Flower Type</h3>
+                        <select class="type-select" data-field="type">
+                            ${FLOWER_TYPES.map(t => `<option value="${t}">${t} ($${FLOWER_PRICES[t].toFixed(2)} ea)</option>`).join('')}
+                        </select>
+                    </div>
+                    <div class="selection-box">
+                        <h3>Flower Color</h3>
+                        <select class="color-select" data-field="color">
+                            ${COLORS.map(c => `<option value="${c}">${c}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div class="selection-box">
+                        <h3>Stem Color (Optional Accent)</h3>
+                        <select class="stem-select" data-field="stem">
+                            ${STEM_COLORS.map(s => `<option value="${s}">${s}</option>`).join('')}
+                        </select>
+                    </div>
+                </div>
             </div>
-        </div>
+        `;
 
-        <h3>Flower Components</h3>
-        <div id="flower-groups-container">
-        </div>
+    flowerGroupsContainer.insertAdjacentHTML('beforeend', groupHTML);
 
-        <button id="add-flower-group-btn" class="secondary-btn">+ Add Flower Type</button>
-        <hr>
+    // Attach listeners to the new quantity input and type select
+    const newGroupElement = document.getElementById(id);
+    const newQuantityInput = newGroupElement.querySelector('.quantity-input');
+    const newTypeSelect = newGroupElement.querySelector('.type-select');
 
-        <div class="selection-grid">
-            <div class="selection-box">
-                <h3>Bouquet Wrapping</h3>
-                <select id="wrapping">
-                    <option value="Clear Plastic">Clear Plastic</option>
-                    <option value="Red Silk">Red Silk</option>
-                    <option value="Yellow Burlap">Yellow Burlap</option>
-                    <option value="Blue Tissue">Blue Tissue</option>
-                </select>
-            </div>
-            
-            <div class="selection-box full-width">
-                <h3>💡 Not Sure? Describe Your Vision!</h3>
-                <textarea id="description" rows="3" placeholder="I want something vibrant and warm, like a sunset..."></textarea>
-            </div>
-        </div>
+    newQuantityInput.addEventListener('input', handleQuantityChange);
+    newQuantityInput.addEventListener('blur', handleQuantityChange);
+    newTypeSelect.addEventListener('change', () => {
+        // Update price display in the group header when type changes
+        const selectedType = newTypeSelect.value;
+        const newPrice = FLOWER_PRICES[selectedType] || 0;
+        newGroupElement.querySelector('h4').innerHTML = 
+            `Flower Group #${groupCounter} - $${newPrice.toFixed(2)} / ea <button class="remove-group-btn" data-group-id="${id}">Remove</button>`;
+        updateTotalQuantity(); // Recalculate total price
+    });
 
-        <button id="view-bouquet-button">View My Bouquet</button>
-    </div>
-    <div id="result-page" class="page">
-        <h2>🎉 Your Custom Bouquet Summary</h2>
-        <div id="bouquet-summary">
-        </div>
-        <button onclick="location.reload()">Start Over</button>
-    </div>
+    updateTotalQuantity();
+  }
 
-    <script src="script.js"></script>
-</body>
-</html>
+  // --- Event Listeners for Page Flow ---
+
+  startButton.addEventListener('click', () => {
+    showPage(selectorPage);
+    if (flowerGroupsContainer.children.length === 0) {
+      createFlowerGroup();
+    }
+  });
+
+  addFlowerGroupButton.addEventListener('click', createFlowerGroup);
+
+  // Remove Flower Group (Delegated Listener)
+  flowerGroupsContainer.addEventListener('click', (event) => {
+    if (event.target.classList.contains('remove-group-btn')) {
+      const groupElement = event.target.closest('.flower-group');
+      if (groupElement) {
+        groupElement.remove();
+      }
+      updateTotalQuantity(); // Recalculate total after removal
+    }
+  });
+  
+  // Re-run calculation if any quantity changes (e.g., from typing)
+  flowerGroupsContainer.addEventListener('input', (event) => {
+      if (event.target.classList.contains('quantity-input')) {
+          handleQuantityChange(event);
+      }
+  });
+
+
+  // Selector Page -> Result Page (Final Step/Summary)
+  viewBouquetButton.addEventListener('click', () => {
+    const {currentTotal, totalPrice} = updateTotalQuantity();
+    
+    if (currentTotal === 0) {
+      document.getElementById('error-message').textContent = 'Please add at least one flower to view the bouquet!';
+      showErrorPopup();
+      return;
+    }
+
+    const wrapping = document.getElementById('wrapping').value;
+    const description = document.getElementById('description').value;
+    const summaryDiv = document.getElementById('bouquet-summary');
+
+    const flowerGroups = [];
+
+    document.querySelectorAll('.flower-group').forEach((groupElement) => {
+      const quantity = parseInt(groupElement.querySelector('.quantity-input').value) || 0;
+      const type = groupElement.querySelector('.type-select').value;
+      const color = groupElement.querySelector('.color-select').value;
+      const stem = groupElement.querySelector('.stem-select').value;
+
+      if (quantity > 0) {
+        flowerGroups.push({
+          quantity: quantity,
+          type: type,
+          color: color,
+          stem: stem
+        });
+      }
+    });
+
+    // Build the Summary HTML
+    let summaryHTML = '<h3>Flower Components:</h3>';
+    if (flowerGroups.length > 0) {
+      summaryHTML += '<ul>';
+      flowerGroups.forEach(group => {
+        const pricePer = FLOWER_PRICES[group.type] || 0;
+        const lineTotal = group.quantity * pricePer;
+        summaryHTML += `<li><strong>${group.quantity}</strong> x ${group.color} ${group.type} ($${pricePer.toFixed(2)} ea) - Subtotal: $${lineTotal.toFixed(2)}</li>`;
+      });
+      summaryHTML += '</ul>';
+    } else {
+      summaryHTML += '<p>No flowers selected.</p>';
+    }
+    
+    summaryHTML += `
+      <hr>
+      <p><strong>Total Flowers:</strong> ${currentTotal} / ${MAX_BOUQUET_SIZE}</p>
+      <p><strong>Bouquet Wrapping:</strong> ${wrapping} (+$${WRAPPING_PRICE.toFixed(2)})</p>
+      <h3 class="final-price">Final Bouquet Price: <span style="color: #4a148c;">$${totalPrice.toFixed(2)}</span></h3>
+    `;
+    
+    if (description.trim() !== '') {
+      summaryHTML += `<hr><p><strong>Personal Vision:</strong></p><p>${description}</p>`;
+    }
+
+    summaryDiv.innerHTML = summaryHTML;
+
+    showPage(resultPage);
+  });
+  
+  // Event listener to recalculate price when flower type changes
+  flowerGroupsContainer.addEventListener('change', (event) => {
+      if (event.target.classList.contains('type-select')) {
+          // This logic is now handled inside createFlowerGroup's event listener, 
+          // but we keep the main recalculation here for robustness.
+          updateTotalQuantity();
+      }
+  });
+
+
+  // Initialization
+  if (flowerGroupsContainer.children.length === 0) {
+    createFlowerGroup();
+  }
+  updateTotalQuantity();
+});
